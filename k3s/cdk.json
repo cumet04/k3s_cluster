@@ -1,0 +1,3 @@
+{
+  "app": "npx ts-node bin/k3s.ts"
+}
