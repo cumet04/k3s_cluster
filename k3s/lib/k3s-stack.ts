@@ -3,6 +3,7 @@ import cdk = require("@aws-cdk/core");
 // import ssm = require("@aws-cdk/aws-ssm");
 import iam = require("@aws-cdk/aws-iam");
 import ec2 = require("@aws-cdk/aws-ec2");
+import autoscaling = require("@aws-cdk/aws-autoscaling");
 
 function tap<T>(value: T, fn: (value: T) => void): T {
   fn(value);
@@ -59,72 +60,73 @@ export class K3SStack extends cdk.Stack {
     });
 
     // vpc / networks
-    const vpc = new ec2.Vpc(this, 'VPC', {
-      cidr: '10.0.0.0/22',
+    const vpc = new ec2.Vpc(this, "VPC", {
+      cidr: "10.0.0.0/22",
       maxAzs: 3,
       subnetConfiguration: [
         {
-          name: 'Ingress',
+          name: "Ingress",
           subnetType: ec2.SubnetType.PUBLIC,
-          cidrMask: 28,
+          cidrMask: 28
         },
         {
-          name: 'Master',
+          name: "Master",
           subnetType: ec2.SubnetType.PUBLIC,
-          cidrMask: 28,
+          cidrMask: 28
         },
         {
-          name: 'Worker',
+          name: "Worker",
           subnetType: ec2.SubnetType.PUBLIC,
-          cidrMask: 24,
-        },
+          cidrMask: 24
+        }
       ]
-    })
+    });
 
-    const secgroup = new ec2.SecurityGroup(this, 'SecurityGroup', { vpc })
+    const secgroup = new ec2.SecurityGroup(this, "SecurityGroup", { vpc });
     // TODO: rule
 
     // launch template with userdata
     const common_template_data: ec2.CfnLaunchTemplate.LaunchTemplateDataProperty = {
-      instanceType: new ec2.InstanceType("t3.micro").toString(),
-      imageId: new ec2.AmazonLinuxImage({ generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2 }).getImage(this).imageId,
-      networkInterfaces: [{
-        associatePublicIpAddress: true,
-        groups: [secgroup.securityGroupId],
-      }],
-      blockDeviceMappings: [{
-        deviceName: '/dev/xvda',
-        ebs: {
-          deleteOnTermination: true,
-          volumeSize: 8,
-          volumeType: 'gp2'
+      imageId: new ec2.AmazonLinuxImage({
+        generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2
+      }).getImage(this).imageId,
+      networkInterfaces: [
+        {
+          associatePublicIpAddress: true,
+          groups: [secgroup.securityGroupId]
         }
-      }],
-    }
-    const master_template = new ec2.CfnLaunchTemplate(this, 'MasterTemplate', {
+      ],
+      blockDeviceMappings: [
+        {
+          deviceName: "/dev/xvda",
+          ebs: {
+            deleteOnTermination: true,
+            volumeSize: 8,
+            volumeType: "gp2"
+          }
+        }
+      ]
+    };
+    const master_template = new ec2.CfnLaunchTemplate(this, "MasterTemplate", {
       launchTemplateData: Object.assign(common_template_data, {
         iamInstanceProfile: {
-          arn: new iam.CfnInstanceProfile(this, 'InstanceProfileServer', {
-            roles: [
-              server_role.roleName
-            ]
+          arn: new iam.CfnInstanceProfile(this, "InstanceProfileServer", {
+            roles: [server_role.roleName]
           }).attrArn
         },
-        userData: fs.readFileSync('lib/userdata/master.sh').toString('base64')
+        userData: fs.readFileSync("lib/userdata/master.sh").toString("base64")
       })
-    })
-    const agent_template = new ec2.CfnLaunchTemplate(this, 'AgentTemplate', {
+    });
+    const agent_template = new ec2.CfnLaunchTemplate(this, "AgentTemplate", {
       launchTemplateData: Object.assign(common_template_data, {
         iamInstanceProfile: {
-          arn: new iam.CfnInstanceProfile(this, 'InstanceProfileAgent', {
-            roles: [
-              agent_role.roleName
-            ]
+          arn: new iam.CfnInstanceProfile(this, "InstanceProfileAgent", {
+            roles: [agent_role.roleName]
           }).attrArn
         },
-        userData: fs.readFileSync('lib/userdata/agent.sh').toString('base64')
+        userData: fs.readFileSync("lib/userdata/agent.sh").toString("base64")
       })
-    })
+    });
 
     // autoscaling group
   }
