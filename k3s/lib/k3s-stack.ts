@@ -10,6 +10,12 @@ function tap<T>(value: T, fn: (value: T) => void): T {
   return value;
 }
 
+function merge<T, U>(target: T, source: U): T & U {
+  const target_clone = Object.assign({}, target);
+  const source_clone = Object.assign({}, source);
+  return Object.assign(target_clone, source_clone);
+}
+
 export class K3SStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -75,7 +81,7 @@ export class K3SStack extends cdk.Stack {
           cidrMask: 28
         },
         {
-          name: "Worker",
+          name: "Agent",
           subnetType: ec2.SubnetType.PUBLIC,
           cidrMask: 24
         }
@@ -87,12 +93,14 @@ export class K3SStack extends cdk.Stack {
 
     // launch template with userdata
     const common_template_data: ec2.CfnLaunchTemplate.LaunchTemplateDataProperty = {
+      instanceType: new ec2.InstanceType("t3.micro").toString(),
       imageId: new ec2.AmazonLinuxImage({
         generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2
       }).getImage(this).imageId,
       networkInterfaces: [
         {
           associatePublicIpAddress: true,
+          deviceIndex: 0,
           groups: [secgroup.securityGroupId]
         }
       ],
@@ -108,7 +116,7 @@ export class K3SStack extends cdk.Stack {
       ]
     };
     const master_template = new ec2.CfnLaunchTemplate(this, "MasterTemplate", {
-      launchTemplateData: Object.assign(common_template_data, {
+      launchTemplateData: merge(common_template_data, {
         iamInstanceProfile: {
           arn: new iam.CfnInstanceProfile(this, "InstanceProfileServer", {
             roles: [server_role.roleName]
@@ -118,7 +126,7 @@ export class K3SStack extends cdk.Stack {
       })
     });
     const agent_template = new ec2.CfnLaunchTemplate(this, "AgentTemplate", {
-      launchTemplateData: Object.assign(common_template_data, {
+      launchTemplateData: merge(common_template_data, {
         iamInstanceProfile: {
           arn: new iam.CfnInstanceProfile(this, "InstanceProfileAgent", {
             roles: [agent_role.roleName]
@@ -129,5 +137,14 @@ export class K3SStack extends cdk.Stack {
     });
 
     // autoscaling group
+    new autoscaling.CfnAutoScalingGroup(this, "AgentScalingGroup", {
+      maxSize: "4",
+      minSize: "0",
+      launchTemplate: {
+        version: agent_template.attrLatestVersionNumber,
+        launchTemplateId: agent_template.ref
+      },
+      vpcZoneIdentifier: vpc.selectSubnets({ subnetName: "Agent" }).subnetIds
+    });
   }
 }
