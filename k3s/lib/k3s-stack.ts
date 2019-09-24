@@ -10,12 +10,6 @@ function tap<T>(value: T, fn: (value: T) => void): T {
   return value;
 }
 
-function merge<T, U>(target: T, source: U): T & U {
-  const target_clone = Object.assign({}, target);
-  const source_clone = Object.assign({}, source);
-  return Object.assign(target_clone, source_clone);
-}
-
 export class K3SStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -68,13 +62,8 @@ export class K3SStack extends cdk.Stack {
     // vpc / networks
     const vpc = new ec2.Vpc(this, "VPC", {
       cidr: "10.0.0.0/22",
-      maxAzs: 3,
+      maxAzs: 2,
       subnetConfiguration: [
-        {
-          name: "Ingress",
-          subnetType: ec2.SubnetType.PUBLIC,
-          cidrMask: 28
-        },
         {
           name: "Master",
           subnetType: ec2.SubnetType.PUBLIC,
@@ -89,51 +78,62 @@ export class K3SStack extends cdk.Stack {
     });
 
     const secgroup = new ec2.SecurityGroup(this, "SecurityGroup", { vpc });
-    // TODO: rule
+    secgroup.addIngressRule(ec2.Peer.ipv4(vpc.vpcCidrBlock), ec2.Port.allTcp());
 
     // launch template with userdata
-    const common_template_data: ec2.CfnLaunchTemplate.LaunchTemplateDataProperty = {
-      instanceType: new ec2.InstanceType("t3.micro").toString(),
-      imageId: new ec2.AmazonLinuxImage({
-        generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2
-      }).getImage(this).imageId,
-      networkInterfaces: [
-        {
-          associatePublicIpAddress: true,
-          deviceIndex: 0,
-          groups: [secgroup.securityGroupId]
+    const amzn2_image_id = new ec2.AmazonLinuxImage({
+      generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2
+    }).getImage(this).imageId;
+    const root_block_device = (size: number): ec2.CfnLaunchTemplate.BlockDeviceMappingProperty => {
+      return {
+        deviceName: "/dev/xvda",
+        ebs: {
+          deleteOnTermination: true,
+          volumeSize: size,
+          volumeType: "gp2"
         }
-      ],
-      blockDeviceMappings: [
-        {
-          deviceName: "/dev/xvda",
-          ebs: {
-            deleteOnTermination: true,
-            volumeSize: 8,
-            volumeType: "gp2"
-          }
-        }
-      ]
+      };
     };
     const master_template = new ec2.CfnLaunchTemplate(this, "MasterTemplate", {
-      launchTemplateData: merge(common_template_data, {
+      launchTemplateData: {
+        instanceType: new ec2.InstanceType("t3.micro").toString(),
+        imageId: amzn2_image_id,
+        networkInterfaces: [
+          {
+            associatePublicIpAddress: true,
+            deviceIndex: 0,
+            groups: [secgroup.securityGroupId],
+            subnetId: vpc.selectSubnets({ subnetName: "Master" }).subnetIds[0]
+          }
+        ],
+        blockDeviceMappings: [root_block_device(8)],
         iamInstanceProfile: {
           arn: new iam.CfnInstanceProfile(this, "InstanceProfileServer", {
             roles: [server_role.roleName]
           }).attrArn
         },
         userData: fs.readFileSync("lib/userdata/master.sh").toString("base64")
-      })
+      }
     });
     const agent_template = new ec2.CfnLaunchTemplate(this, "AgentTemplate", {
-      launchTemplateData: merge(common_template_data, {
+      launchTemplateData: {
+        instanceType: new ec2.InstanceType("t3.micro").toString(),
+        imageId: amzn2_image_id,
+        networkInterfaces: [
+          {
+            associatePublicIpAddress: true,
+            deviceIndex: 0,
+            groups: [secgroup.securityGroupId]
+          }
+        ],
+        blockDeviceMappings: [root_block_device(8)],
         iamInstanceProfile: {
           arn: new iam.CfnInstanceProfile(this, "InstanceProfileAgent", {
             roles: [agent_role.roleName]
           }).attrArn
         },
         userData: fs.readFileSync("lib/userdata/agent.sh").toString("base64")
-      })
+      }
     });
 
     // autoscaling group
