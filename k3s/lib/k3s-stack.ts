@@ -1,6 +1,5 @@
 import fs = require("fs");
 import cdk = require("@aws-cdk/core");
-// import ssm = require("@aws-cdk/aws-ssm");
 import iam = require("@aws-cdk/aws-iam");
 import ec2 = require("@aws-cdk/aws-ec2");
 import autoscaling = require("@aws-cdk/aws-autoscaling");
@@ -13,17 +12,6 @@ function tap<T>(value: T, fn: (value: T) => void): T {
 export class K3SStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
-
-    // parameter store
-    // stringValueは1文字以上必要（空文字列ではだめ）なのでダミーを入れておく
-    // const host_param = new ssm.StringParameter(this, "SSMParamHost", {
-    //   parameterName: "/k3s/master/host",
-    //   stringValue: "127.0.0.1"
-    // });
-    // const token_param = new ssm.StringParameter(this, "SSMParamToken", {
-    //   parameterName: "/k3s/master/token",
-    //   stringValue: "some-token"
-    // });
 
     // iam role for ec2
     const server_role = new iam.Role(this, "IAMRoleServer", {

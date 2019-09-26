@@ -12,15 +12,14 @@
   },
   "devDependencies": {
     "@aws-cdk/assert": "^1.9.0",
+    "@aws-cdk/aws-autoscaling": "^1.9.0",
+    "@aws-cdk/aws-ec2": "^1.9.0",
+    "@aws-cdk/core": "^1.9.0",
     "aws-cdk": "^1.9.0",
     "prettier": "^1.18.2",
+    "source-map-support": "^0.5.9",
     "ts-node": "^8.1.0",
-    "typescript": "~3.6.2",
-    "@aws-cdk/aws-ec2": "^1.9.0",
-    "@aws-cdk/aws-ssm": "^1.9.0",
-    "@aws-cdk/core": "^1.9.0",
-    "@aws-cdk/aws-autoscaling": "^1.9.0",
-    "source-map-support": "^0.5.9"
+    "typescript": "~3.6.2"
   },
   "prettier": {
     "printWidth": 100
