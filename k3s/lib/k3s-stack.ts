@@ -14,10 +14,10 @@ export class K3SStack extends cdk.Stack {
     super(scope, id, props);
 
     // iam role for ec2
-    const server_role = new iam.Role(this, "IAMRoleServer", {
+    const master_role = new iam.Role(this, "IAMRoleMaster", {
       assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
       inlinePolicies: {
-        k3s_write_server_info: tap(new iam.PolicyDocument(), doc => {
+        k3s_write_master_info: tap(new iam.PolicyDocument(), doc => {
           doc.addStatements(
             tap(new iam.PolicyStatement({ effect: iam.Effect.ALLOW }), st => {
               st.addActions("ssm:PutParameter");
@@ -33,7 +33,7 @@ export class K3SStack extends cdk.Stack {
     const agent_role = new iam.Role(this, "IAMRoleAgent", {
       assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
       inlinePolicies: {
-        k3s_read_server_info: tap(new iam.PolicyDocument(), doc => {
+        k3s_read_master_info: tap(new iam.PolicyDocument(), doc => {
           doc.addStatements(
             tap(new iam.PolicyStatement({ effect: iam.Effect.ALLOW }), st => {
               st.addActions("ssm:GetParameter");
@@ -96,8 +96,8 @@ export class K3SStack extends cdk.Stack {
         ],
         blockDeviceMappings: [root_block_device(8)],
         iamInstanceProfile: {
-          arn: new iam.CfnInstanceProfile(this, "InstanceProfileServer", {
-            roles: [server_role.roleName]
+          arn: new iam.CfnInstanceProfile(this, "InstanceProfileMaster", {
+            roles: [master_role.roleName]
           }).attrArn
         },
         userData: fs.readFileSync("lib/userdata/master.sh").toString("base64")
