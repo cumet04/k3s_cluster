@@ -12,7 +12,7 @@ systemctl reload sshd
 
 # k3s ----------
 
-K3S_VERSION=v0.8.0
+K3S_VERSION="v1.18.2+k3s1"
 BIN_DIR=/usr/local/bin
 
 ## agent
@@ -36,7 +36,7 @@ ExecStartPre=/opt/k3s_env_setup.sh
 "
 
 ## common
-curl -L https://github.com/rancher/k3s/releases/download/$K3S_VERSION/k3s -o $BIN_DIR/k3s
+curl -L "https://github.com/rancher/k3s/releases/download/$K3S_VERSION/k3s" -o $BIN_DIR/k3s
 chown root:root $BIN_DIR/k3s
 chmod +x $BIN_DIR/k3s
 
